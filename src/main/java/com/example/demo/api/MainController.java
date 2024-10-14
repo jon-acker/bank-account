@@ -33,13 +33,11 @@ public class MainController {
     ) {
         Stream<Payment> payments = paymentRepository.stream();
 
-        if (currencies.isEmpty()) {
-            return payments;
+        if (!currencies.isEmpty()) {
+            payments = payments.filter(payment -> currencies.contains(payment.currency()));
         }
 
-        return payments
-                .filter(payment -> payment.amount() >= minAmount)
-                .filter(payment -> currencies.contains(payment.currency()));
+        return payments.filter(payment -> payment.amount() >= minAmount);
     }
 
     @PostMapping("/payments")
