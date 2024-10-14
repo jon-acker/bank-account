@@ -2,6 +2,7 @@ package com.example.demo.api;
 
 import com.example.demo.api.exception.Error;
 import com.example.demo.api.exception.InvalidAccountNumber;
+import com.example.demo.api.exception.InvalidSortCode;
 import com.example.demo.bank.Counterparty;
 import com.example.demo.bank.Currency;
 import com.example.demo.bank.Payment;
@@ -18,8 +19,7 @@ import org.springframework.web.servlet.ModelAndView;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
-
-import static com.example.demo.bank.CounterpartyType.SORT_CODE_ACCOUNT_NUMBER;
+import java.util.stream.Stream;
 
 @RestController
 public class MainController {
@@ -34,12 +34,17 @@ public class MainController {
 //    }
 
     @GetMapping("/payments")
-    public List<Payment> getPayments(
+    public Stream<Payment> getPayments(
             @RequestParam(required = false) Double minAmount,
-            @RequestParam(required = false) List<Currency> currencies
+            @RequestParam(required = false, defaultValue = "") List<Currency> currencies
     ) {
-        log.info(Arrays.toString(currencies.toArray()));
-        return paymentRepository;
+        if (currencies.isEmpty()) {
+            return paymentRepository.stream();
+        }
+
+        return paymentRepository
+                .stream()
+                .filter(payment -> currencies.contains(payment.currency()));
     }
 
     @PostMapping("/payments")
@@ -47,9 +52,8 @@ public class MainController {
     public Payment createPayment(@RequestBody Payment payment) {
         log.info(payment.toString());
 
-        if (payment.counterparty().accountNumber().length() != 8) {
-            throw new InvalidAccountNumber("Invalid account number");
-        }
+        guardAgainstInvalidAccountNumber(payment);
+        guardAgainstInvalidSortCore(payment);
 
         paymentRepository.add(payment);
 
@@ -58,7 +62,21 @@ public class MainController {
 
     @ExceptionHandler
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    Error handleException(RuntimeException exception) {
+    public Error handleException(RuntimeException exception) {
         return new Error(exception.getMessage());
     }
+
+    private static void guardAgainstInvalidSortCore(Payment payment) {
+        if (!payment.counterparty().sortCode().matches("\\d{6}")) {
+            throw new InvalidSortCode();
+        }
+    }
+
+    private static void guardAgainstInvalidAccountNumber(Payment payment) {
+        if (!payment.counterparty().accountNumber().matches("\\d{8}")) {
+            throw new InvalidAccountNumber();
+        }
+    }
+
+
 }

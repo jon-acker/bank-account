@@ -16,7 +16,16 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.io.UnsupportedEncodingException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
+import static net.javacrumbs.jsonunit.assertj.JsonAssertions.json;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest
@@ -27,9 +36,9 @@ public class PaymentSteps {
 
     private ResultActions response;
 
-    @When("I submit a payment of {double} GBP to account {string} sort code {string}")
-    public void i_submit_a_payment_of_gbp_to_account_sort_code(Double amount, String accountNumber, String sortCode) throws Exception {
-        var payment = new Payment(amount, Currency.GBP, new Counterparty(CounterpartyType.SORT_CODE_ACCOUNT_NUMBER, accountNumber, sortCode));
+    @When("I submit a payment of {double} {string} to account {string} sort code {string}")
+    public void i_submit_a_payment_of_gbp_to_account_sort_code(Double amount, String currency, String accountNumber, String sortCode) throws Exception {
+        var payment = new Payment(amount, Currency.valueOf(currency), new Counterparty(CounterpartyType.SORT_CODE_ACCOUNT_NUMBER, accountNumber, sortCode));
 
         response = mockMvc.perform(post("/payments")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -52,4 +61,37 @@ public class PaymentSteps {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value(message));
     }
+
+    @When("I retrieve all payments")
+    public void i_retrieve_all_payments() throws Exception {
+        response = mockMvc.perform(get("/payments"));
+    }
+
+    @When("I retrieve all {string} payments")
+    public void i_retrieve_all_currency_payments(String currency) throws Exception {
+        response = mockMvc
+                .perform(get("/payments")
+                        .queryParam("minAmount", "10.00")
+                        .queryParam("currencies", currency));
+    }
+
+    @Then("a HTTP OK status should be returned")
+    public void a_http_ok_status_should_be_returned() throws Exception {
+        response.andExpect(status().isOk());
+    }
+
+    @Then("I should receive the following list:")
+    public void i_should_receive_the_following_list(List<Map<String, String>> expectedPayments) throws Exception {
+        var stringResponse = response.andReturn().getResponse().getContentAsString();
+
+        Payment[] payments = new ObjectMapper().readValue(stringResponse, Payment[].class);
+
+//
+        for (int i = 0; i < payments.length; i++) {
+            assertEquals(expectedPayments.get(i).get("amount"), payments[i].amount().toString());
+            assertEquals(expectedPayments.get(i).get("account"), payments[i].counterparty().accountNumber());
+            assertEquals(expectedPayments.get(i).get("sort code"), payments[i].counterparty().sortCode());
+        }
+    }
+
 }
