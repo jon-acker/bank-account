@@ -8,6 +8,4 @@ import java.util.ArrayList;
 @Component
 public class PaymentRepository extends ArrayList<Payment> {
 
-
-
 }
