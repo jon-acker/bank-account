@@ -3,20 +3,13 @@ package com.example.demo.api;
 import com.example.demo.api.exception.Error;
 import com.example.demo.api.exception.InvalidAccountNumber;
 import com.example.demo.api.exception.InvalidSortCode;
-import com.example.demo.bank.Counterparty;
 import com.example.demo.bank.Currency;
 import com.example.demo.bank.Payment;
 import com.example.demo.bank.repository.PaymentRepository;
-import jakarta.servlet.http.HttpServletRequest;
-import org.apache.coyote.BadRequestException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ServerErrorException;
-import org.springframework.web.servlet.ModelAndView;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
@@ -25,25 +18,27 @@ import java.util.stream.Stream;
 public class MainController {
 
     @Autowired
-    private final PaymentRepository paymentRepository = new PaymentRepository();
+    private final PaymentRepository paymentRepository;
 
     Logger log = Logger.getLogger("com.example.demo.api.MainController");
 
-//    public MainController(PaymentRepository paymentRepository) {
-//        this.paymentRepository = paymentRepository;
-//    }
+    public MainController(PaymentRepository paymentRepository) {
+        this.paymentRepository = paymentRepository;
+    }
 
     @GetMapping("/payments")
     public Stream<Payment> getPayments(
-            @RequestParam(required = false) Double minAmount,
+            @RequestParam(required = false, defaultValue = "0") Double minAmount,
             @RequestParam(required = false, defaultValue = "") List<Currency> currencies
     ) {
+        Stream<Payment> payments = paymentRepository.stream();
+
         if (currencies.isEmpty()) {
-            return paymentRepository.stream();
+            return payments;
         }
 
-        return paymentRepository
-                .stream()
+        return payments
+                .filter(payment -> payment.amount() >= minAmount)
                 .filter(payment -> currencies.contains(payment.currency()));
     }
 
@@ -77,6 +72,4 @@ public class MainController {
             throw new InvalidAccountNumber();
         }
     }
-
-
 }

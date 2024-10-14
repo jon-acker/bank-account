@@ -1,12 +1,12 @@
 package com.example.demo;
 
-import com.example.demo.api.MainController;
 import com.example.demo.bank.Counterparty;
 import com.example.demo.bank.CounterpartyType;
 import com.example.demo.bank.Currency;
 import com.example.demo.bank.Payment;
 import com.example.demo.bank.repository.PaymentRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.cucumber.java.Before;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,10 +14,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import java.io.UnsupportedEncodingException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -34,7 +31,15 @@ public class PaymentSteps {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private PaymentRepository paymentRepository;
+
     private ResultActions response;
+
+    @Before
+    public void setup() {
+        paymentRepository.clear();
+    }
 
     @When("I submit a payment of {double} {string} to account {string} sort code {string}")
     public void i_submit_a_payment_of_gbp_to_account_sort_code(Double amount, String currency, String accountNumber, String sortCode) throws Exception {
@@ -71,7 +76,6 @@ public class PaymentSteps {
     public void i_retrieve_all_currency_payments(String currency) throws Exception {
         response = mockMvc
                 .perform(get("/payments")
-                        .queryParam("minAmount", "10.00")
                         .queryParam("currencies", currency));
     }
 
@@ -86,7 +90,8 @@ public class PaymentSteps {
 
         Payment[] payments = new ObjectMapper().readValue(stringResponse, Payment[].class);
 
-//
+        assertEquals(expectedPayments.size(), payments.length);
+
         for (int i = 0; i < payments.length; i++) {
             assertEquals(expectedPayments.get(i).get("amount"), payments[i].amount().toString());
             assertEquals(expectedPayments.get(i).get("account"), payments[i].counterparty().accountNumber());
@@ -94,4 +99,11 @@ public class PaymentSteps {
         }
     }
 
+    @When("I retrieve all payments that are at minimum {string} {string}")
+    public void iRetrieveAllPaymentsThatAreAtMinimum(String amount, String currency) throws Exception {
+        response = mockMvc
+                .perform(get("/payments")
+                        .queryParam("minAmount", amount)
+                        .queryParam("currencies", currency));
+    }
 }
